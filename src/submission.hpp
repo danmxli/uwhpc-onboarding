@@ -98,7 +98,7 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
     const double *above_row = old_grid.row_view(i - 1);
     const double *below_row = old_grid.row_view(i + 1);
     double *__restrict out_row = new_grid.row_view_mutable(i);
-#pragma omp simd
+#pragma omp simd aligned(center_row, above_row, below_row, out_row : 64)
     for (std::size_t j = 1; j < cols - 1; ++j) {
       out_row[j] =
           0.5 * center_row[j] + 0.125 * (above_row[j] + below_row[j] +
