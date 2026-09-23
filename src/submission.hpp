@@ -1,11 +1,48 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdlib>
+#include <memory>
 #include <vector>
 
 namespace {
 // Assumes 64-byte cache line.
-constexpr std::size_t kStrideUnit = 64 / sizeof(double);
+constexpr std::size_t kStrideAlignment{64};
+constexpr std::size_t kStridePadding{kStrideAlignment / sizeof(double)};
+
+template <typename T, std::size_t Alignment = kStrideAlignment>
+struct GridDataAllocator {
+  using value_type = T;
+
+  GridDataAllocator() noexcept = default;
+
+  template <typename U>
+  constexpr GridDataAllocator(
+      const GridDataAllocator<U, Alignment> &) noexcept {}
+
+  [[nodiscard]] T *allocate(std::size_t n) {
+    if (n == 0)
+      return nullptr;
+
+    std::size_t size = n * sizeof(T);
+    std::size_t remainder = size % Alignment;
+    if (remainder != 0)
+      size += (Alignment - remainder);
+
+    void *ptr = std::aligned_alloc(Alignment, size);
+    if (!ptr)
+      throw std::bad_alloc();
+    return static_cast<T *>(ptr);
+  }
+
+  void deallocate(T *ptr, std::size_t) noexcept { std::free(ptr); }
+
+  template <typename U> struct rebind {
+    using other = GridDataAllocator<U, Alignment>;
+  };
+  bool operator==(const GridDataAllocator &) const noexcept { return true; }
+  bool operator!=(const GridDataAllocator &) const noexcept { return false; }
+};
 } // namespace
 
 // Starter Grid for the 2D heat-diffusion problem.
@@ -18,12 +55,13 @@ private:
   std::size_t rows_;
   std::size_t cols_;
   std::size_t stride_;
-  std::vector<double> data_;
+  std::vector<double, GridDataAllocator<double>> data_;
 
 public:
   Grid(std::size_t rows, std::size_t cols)
       : rows_(rows), cols_(cols),
-        stride_(((cols + kStrideUnit - 1) / kStrideUnit) * kStrideUnit),
+        stride_(((cols + kStridePadding - 1) / kStridePadding) *
+                kStridePadding),
         data_(rows * stride_, 0.0) {}
 
   std::size_t rows() const { return rows_; }
