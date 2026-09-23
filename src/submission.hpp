@@ -47,17 +47,15 @@ void apply_stencil(const Grid &old_grid, Grid &new_grid) {
   const std::size_t rows = old_grid.rows();
   const std::size_t cols = old_grid.cols();
 
-  for (std::size_t row{}; row < rows; ++row) {
-    new_grid(row, 0) = old_grid(row, 0);
-    new_grid(row, cols - 1) = old_grid(row, cols - 1);
-  }
   for (std::size_t col{}; col < cols; ++col) {
     new_grid(0, col) = old_grid(0, col);
     new_grid(rows - 1, col) = old_grid(rows - 1, col);
   }
-
 #pragma omp parallel for schedule(static)
   for (std::size_t i = 1; i < rows - 1; ++i) {
+    new_grid(i, 0) = old_grid(i, 0);
+    new_grid(i, cols - 1) = old_grid(i, cols - 1);
+
     const double *center_row = old_grid.row_view(i);
     const double *above_row = old_grid.row_view(i - 1);
     const double *below_row = old_grid.row_view(i + 1);
